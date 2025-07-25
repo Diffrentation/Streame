@@ -268,3 +268,116 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
     });
   }
 });
+
+// ===================== Change user password =====================
+
+export const changeUserPassword = asyncHandler(async (req, res) => {
+  try {
+    const { currentPassword, newPassword, conformPassword } = req.body;
+    if (!(newPassword == conformPassword)) {
+      throw new ApiError(401, "password is incorrect");
+    }
+    if (!currentPassword || !newPassword) {
+      throw new ApiError(400, "Current and new passwords are required");
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    const isCurrentPasswordMatch = await user.isPassMatch(currentPassword);
+    if (!isCurrentPasswordMatch) {
+      throw new ApiError(401, "Current password is incorrect");
+    }
+    // Password strength check
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      throw new ApiError(
+        400,
+        "New password must be at least 8 characters long, contain one uppercase, one lowercase, one number, and one special character"
+      );
+    }
+    user.password.newPassword;
+    await user.save({ validateBeforeSave: false });
+    return res
+      .status(202)
+      .json(new ApiResponse(200, "Password updated successfully"));
+  } catch (error) {
+    console.error("Password updation error:", error);
+
+    if (error instanceof ApiError) {
+      return res
+        .status(error.statusCode)
+        .json({ success: false, message: error.message });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error during updation of password",
+    });
+  }
+});
+
+// ===================== Update Account details =====================
+
+export const updateAccountDatails = asyncHandler(async (req, res) => {
+  const { email, fullname } = req.body;
+  if (!fullname || !email) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const user = await User.findByIdAndDelete(
+    req.user.id,
+    {
+      email,
+      fullname,
+    },
+    { new: true }
+  ).select("-password", "refreceToken");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details Updated successfully"));
+});
+
+// ===================== Get Current user =====================
+
+export const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = req.user;
+
+  if (!user) {
+    return res
+      .status(401)
+      .json(new ApiResponse(401, null, "User not authenticated"));
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Current user fetched successfully"));
+});
+
+// ===================== Update user profile =====================
+
+export const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is missing");
+  }
+  console.log(avatarLocalPath);
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  if (!avatar.secure_url) {
+    throw new ApiError(400, "Error while uploading profile");
+  }
+  const updatedProfile = await User.findByIdAndUpdate(
+    req.user?.id,
+    {
+      $set: {
+        avatar: avatar.secure_url,
+      },
+    },
+    { new: true }
+  ).select("-password", "-refreceToken");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "User profile updated successfully"));
+});

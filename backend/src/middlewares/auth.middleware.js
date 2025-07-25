@@ -1,5 +1,5 @@
 import User from "../models/user.model.js";
-import asyncHandler from "../utils/asyncHandler.js"
+import asyncHandler from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 import ApiError from "../utils/ApiError.js";
 
@@ -11,7 +11,7 @@ export const authMiddleware = asyncHandler(async (req, res, next) => {
       throw new ApiError(401, "Access token is required");
     }
     console.log("Access Token:", token);
-    
+
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
     console.log("Decoded Token:", decodedToken);
     if (!decodedToken) {
